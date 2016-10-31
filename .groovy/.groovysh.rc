@@ -1,0 +1,4 @@
+:load src/main/groovy/HzShell.groovy
+:register commands.WhoCommand
+:register commands.WhoAmICommand
+:register commands.JVMCommand

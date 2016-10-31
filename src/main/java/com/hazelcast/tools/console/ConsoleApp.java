@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-package com.hazelcast.console;
+package com.hazelcast.tools.console;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.ExecutorConfig;
 import com.hazelcast.config.FileSystemXmlConfig;
+import com.hazelcast.console.Echo;
+import com.hazelcast.console.LineReader;
+import com.hazelcast.console.SimulateLoadTask;
 import com.hazelcast.core.*;
 import com.hazelcast.util.Clock;
 import org.fusesource.jansi.AnsiRenderer;
@@ -31,7 +34,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 
 import static java.lang.String.format;
-import static org.fusesource.jansi.AnsiRenderer.*;
+import static org.fusesource.jansi.AnsiRenderer.render;
 
 /**
  * Special thanks to Alexandre Vasseur for providing this very nice test
@@ -42,7 +45,7 @@ import static org.fusesource.jansi.AnsiRenderer.*;
 public class ConsoleApp implements EntryListener, ItemListener, MessageListener {
 
     private static final int LOAD_EXECUTORS_COUNT = 16;
-    private static final int ONE_KB = 1024;
+    public static final int ONE_KB = 1024;
     private static final int ONE_THOUSAND = 1000;
     private static final int ONE_HUNDRED = 100;
     private static final int ONE_HOUR = 3600;
@@ -76,8 +79,13 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
 
     private AnsiRenderer renderer;
 
-    public ConsoleApp(HazelcastInstance hazelcast) {
-        this.hazelcast = hazelcast;
+    private static ConsoleApp instance = null;
+
+    public static ConsoleApp getApp() {
+        if (instance == null) {
+            return new ConsoleApp();
+        }
+        return instance;
     }
 
     public IQueue<Object> getQueue() {
@@ -116,13 +124,14 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
         return list;
     }
 
-    public void setHazelcast(HazelcastInstance hazelcast) {
+    public ConsoleApp setHazelcast(HazelcastInstance hazelcast) {
         this.hazelcast = hazelcast;
         map = null;
         list = null;
         set = null;
         queue = null;
         topic = null;
+        return this;
     }
 
     public void stop() {
@@ -228,21 +237,18 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
             final String threadCommand = command.substring(first.length());
             for (int i = 0; i < fork; i++) {
                 final int threadID = i;
-                pool.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        String command = threadCommand;
-                        String[] threadArgs = command.replaceAll("\\$t", "" + threadID).trim()
-                                .split(" ");
-                        // TODO &t #4 m.putmany x k
-                        if ("m.putmany".equals(threadArgs[0])
-                                || "m.removemany".equals(threadArgs[0])) {
-                            if (threadArgs.length < 4) {
-                                command += " " + Integer.parseInt(threadArgs[1]) * threadID;
-                            }
+                pool.submit(() -> {
+                    String command1 = threadCommand;
+                    String[] threadArgs = command1.replaceAll("\\$t", "" + threadID).trim()
+                            .split(" ");
+                    // TODO &t #4 m.putmany x k
+                    if ("m.putmany".equals(threadArgs[0])
+                            || "m.removemany".equals(threadArgs[0])) {
+                        if (threadArgs.length < 4) {
+                            command1 += " " + Integer.parseInt(threadArgs[1]) * threadID;
                         }
-                        handleCommand(command);
                     }
+                    handleCommand(command1);
                 });
             }
             pool.shutdown();
@@ -512,7 +518,7 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
         println("namespace: " + namespace);
     }
 
-    private void handleJvm() {
+    public void handleJvm() {
         System.gc();
         println("Memory max: " + Runtime.getRuntime().maxMemory() / ONE_KB / ONE_KB
                 + "M");
@@ -535,11 +541,11 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
                 + ManagementFactory.getRuntimeMXBean().getVmVersion());
     }
 
-    private void handleWhoami() {
+    public void handleWhoami() {
         println(hazelcast.getCluster().getLocalMember());
     }
 
-    private void handleWho() {
+    public void handleWho() {
         StringBuilder sb = new StringBuilder("\n\nMembers [");
         final Collection<Member> members = hazelcast.getCluster().getMembers();
         sb.append(members != null ? members.size() : 0);
@@ -1299,9 +1305,7 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
             for (Future f : results.values()) {
                 println(f.get());
             }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }
     }
@@ -1537,11 +1541,11 @@ public class ConsoleApp implements EntryListener, ItemListener, MessageListener 
         } catch (FileNotFoundException e) {
             config = new Config();
         }
-        
+
         for (int k = 1; k <= LOAD_EXECUTORS_COUNT; k++) {
             config.addExecutorConfig(new ExecutorConfig(EXECUTOR_NAMESPACE + " " + k).setPoolSize(k));
         }
-        ConsoleApp consoleApp = new ConsoleApp(Hazelcast.newHazelcastInstance(config));
+        ConsoleApp consoleApp = getApp().setHazelcast(Hazelcast.newHazelcastInstance(config));
         consoleApp.start(args);
     }
 

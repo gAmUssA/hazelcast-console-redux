@@ -6,6 +6,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
 
 import java.util.Map;
+import java.util.Set;
 
 import static com.hazelcast.console.Util.installAnsi;
 

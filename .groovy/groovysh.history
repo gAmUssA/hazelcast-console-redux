@@ -1,0 +1,18 @@
+:h
+exit
+:exit
+:load src/main/groovy/HzShell.groovy
+exit
+:exit
+./.groovy/.groovysh.rc
+. .groovy/.groovysh.rc
+jvm
+whoami
+who
+Hazelcast.getAllHazelcastInstances()
+hz.shutdown()
+who
+:exit
+.groovy/.groovysh.rc
+exti
+:exit

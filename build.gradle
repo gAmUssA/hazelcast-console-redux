@@ -1,4 +1,4 @@
-plugins{
+plugins {
     id 'java'
     id 'idea'
     id 'groovy'
@@ -58,8 +58,12 @@ dependencies {
 }
 
 task collectJars(type: Copy) {
-    into "$buildDir/dependencies"
+    //dependsOn Jar
+    into "$projectDir/lib"
     from configurations.testRuntime
+    from jar
+
+
 }
 
 idea {
